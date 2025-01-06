@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>License Plate Search</title>
+    <style>
+      body {
+        margin: 0 auto;
+        max-width: 800px;
+        font-family: sans-serif;
+        line-height: 1.5;
+        padding: 1rem;
+      }
+      header, footer {
+        text-align: center;
+      }
+      .search-box {
+        margin: 2rem 0;
+        display: flex;
+        justify-content: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>License Plate Search</h1>
+      <a href="/">Home</a> &middot; <a href="/videos">Videos</a> &middot; <a href="/plates">License Plates</a>
+    </header>
+
+    <main>
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+      <p>&copy; 2025 topscoder</p>
+    </footer>
+  </body>
+</html>

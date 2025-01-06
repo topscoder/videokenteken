@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block content %}
+<div class="search-box">
+  <form action="/search" method="POST">
+    <label for="license_plate">License Plate:</label>
+    <input type="text" name="license_plate" id="license_plate" placeholder="Enter plate..." required>
+    <button type="submit">Search</button>
+  </form>
+</div>
+
+{% if error %}
+  <p style="color:red;">{{ error }}</p>
+{% endif %}
+{% endblock %}

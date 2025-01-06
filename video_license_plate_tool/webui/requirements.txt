@@ -1,0 +1,4 @@
+# webui/requirements.txt
+Flask==2.3.2
+sqlalchemy==2.0.20
+# We assume you already have 'db/models.py' from your main app

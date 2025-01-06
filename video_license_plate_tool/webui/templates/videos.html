@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>Videos Analyzed {{ videos|length }}</h2>
+
+{% if videos and videos|length > 0 %}
+  <ul>
+    {% for v in videos %}
+      <li>
+        Processed at: <strong>{{ v.processing_date }}</strong> &mdash;
+        <a href="{{ v.url }}" target="_blank">
+            {{ v.url }}
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No videos found.</p>
+{% endif %}
+
+<a href="/">Back to search</a>
+{% endblock %}

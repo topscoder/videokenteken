@@ -1,0 +1,21 @@
+{% extends "layout.html" %}
+{% block content %}
+<h2>License Plates</h2>
+
+{% if plates and plates|length > 0 %}
+  <ul>
+    {% for r in plates %}
+      <li>
+        Plate: <strong>{{ r.plate_text }}</strong> &mdash;
+        <a href="{{ r.video_link }}" target="_blank">
+          Jump to {{ r.timestamp|int }}s
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p>No matching plates found.</p>
+{% endif %}
+
+<a href="/">Back to search</a>
+{% endblock %}
