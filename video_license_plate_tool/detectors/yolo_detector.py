@@ -19,8 +19,8 @@ class YoloPlateDetector:
         self.model = YOLO(self.model_path)  # load YOLO model
 
         # Export the model to TFLite format
-        self.model.export(format='tflite')
-        self.model = YOLO(self.model_path.replace('.pt', '.onnx'))  # load TFLite model
+        # self.model.export(format='tflite')
+        # self.model = YOLO(self.model_path.replace('.pt', '.onnx'))  # load TFLite model
 
     def detect_plates(self, frame):
         """

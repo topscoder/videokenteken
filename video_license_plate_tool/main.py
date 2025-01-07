@@ -45,7 +45,7 @@ def main():
     local_video_path = args.video_path
     if args.video_url:
         print(f"[INFO] Downloading video from: {args.video_url}")
-        local_video_path = video_downloader.download_video(args.video_url)
+        local_video_path = video_downloader.download_video(args.video_url, "downloads")
         print(f"[INFO] Video downloaded to: {local_video_path}")
 
     # Init database
