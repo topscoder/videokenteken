@@ -46,9 +46,44 @@ def plates():
     Only show each found plate_text once.
     """
     session = get_db_session()
-    plates = session.query(Plate).all()
+    results = session.query(Plate).all()
+     # Build a small list of search result dicts with the data we need
+    output_results = []
+    for plate in results:
+        video = plate.video  # relationship from Plate to Video
+        # Convert the plate text to uppercase
+        plate_text_upper = plate.plate_text.upper() if plate.plate_text else ""
+
+        # Build a direct YouTube link with a timestamp
+        # 1) Attempt to parse the YouTube video ID from the url if it's in typical format (e.g., ?v=VIDEO_ID)
+        # 2) If we find it, use https://youtu.be/VIDEO_ID?t=TIMESTAMP
+        # 3) Otherwise, fall back to appending &t=TIMESTAMP or use the raw URL
+
+        video_url = video.url or ""
+        timestamp_sec = int(plate.timestamp)  # convert float -> int for link
+
+        # Regex to find "v=xxxx" in the original URL
+        youtube_id_matches = re.findall(r"v=([^&]+)", video_url)
+        if youtube_id_matches:
+            youtube_id = youtube_id_matches[0]
+            # build shortened link
+            direct_link = f"https://youtu.be/{youtube_id}?t={timestamp_sec}"
+        else:
+            # fallback approach, just append ?t=timestamp
+            # works if the video_url is a standard youtube.com/watch?v=VIDEO_ID
+            if "?" in video_url:
+                direct_link = f"{video_url}&t={timestamp_sec}"
+            else:
+                direct_link = f"{video_url}?t={timestamp_sec}"
+
+        output_results.append({
+            "plate_text": plate_text_upper,
+            "timestamp": plate.timestamp,
+            "video_link": direct_link,
+        })
+
     session.close()
-    return render_template("plates.html", plates=plates)
+    return render_template("plates.html", plates=output_results)
 
 @app.route("/search", methods=["POST"])
 def search():
