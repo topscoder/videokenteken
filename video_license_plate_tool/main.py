@@ -1,13 +1,14 @@
 import argparse
 import os
 import sys
-import cv2  # Import OpenCV for duration calculation
+import cv2  # OpenCV for duration calculation
 from datetime import datetime
 
 from utils import video_downloader, video_reader, config
 from db import db_utils
 from detectors.yolo_detector import YoloPlateDetector
 from ocr.ocr_utils import extract_text_from_image
+from db.models import Video  # Import Video model for querying
 
 def get_video_duration(video_path):
     """
@@ -58,9 +59,6 @@ def main():
         print("Error: Must provide --video_url or --video_path.")
         sys.exit(1)
 
-    # Record start time for processing
-    start_time = datetime.now()
-
     # Download video if URL provided
     local_video_path = args.video_path
     if args.video_url:
@@ -68,8 +66,25 @@ def main():
         local_video_path = video_downloader.download_video(args.video_url, "downloads")
         print(f"[INFO] Video downloaded to: {local_video_path}")
 
-    # Initialize database
+    # Initialize database session
     db_session = db_utils.init_db(config.DB_PATH)
+
+    # Check if the video was processed before
+    existing_video = None
+    if args.video_url:
+        existing_video = db_session.query(Video).filter(Video.url == args.video_url).first()
+    elif local_video_path:
+        existing_video = db_session.query(Video).filter(Video.local_path == local_video_path).first()
+
+    if existing_video:
+        response = input("This video has been processed before. Do you want to proceed with a new analysis? (y/n): ")
+        if response.lower() != 'y':
+            print("Exiting without reprocessing.")
+            db_session.close()
+            sys.exit(0)
+
+    # Record start time for processing
+    start_time = datetime.now()
 
     # Create or retrieve video record
     video_id = db_utils.insert_video_record(
@@ -111,6 +126,8 @@ def main():
         print(f"[INFO] Total video duration: {hours:02d}:{minutes:02d}:{seconds:02d} (HH:MM:SS)")
     else:
         print("[WARN] Unable to determine video duration.")
+
+    db_session.close()
 
 if __name__ == "__main__":
     main()
