@@ -8,7 +8,7 @@ from utils import video_downloader, video_reader, config
 from db import db_utils
 from detectors.yolo_detector import YoloPlateDetector
 from ocr.ocr_utils import extract_text_from_image
-from db.models import Video  # Import Video model for querying
+from db.models import Video
 
 def get_video_duration(video_path):
     """
@@ -26,62 +26,29 @@ def get_video_duration(video_path):
     else:
         return None
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="License Plate Detection and OCR from YouTube/Local Videos."
-    )
-    parser.add_argument(
-        "--video_url",
-        help="URL of the YouTube video (if you want to download)",
-        default=None
-    )
-    parser.add_argument(
-        "--video_path",
-        help="Local path to video file (if already downloaded)",
-        default=None
-    )
-    parser.add_argument(
-        "--confidence_threshold",
-        help="Confidence threshold for plate detection (0.0 - 1.0)",
-        default=0.5,
-        type=float
-    )
-    parser.add_argument(
-        "--frame_skip",
-        help="Number of frames to skip between detection attempts",
-        default=5,
-        type=int
-    )
-    args = parser.parse_args()
-
-    # Ensure we have either a URL or a local path
-    if not args.video_url and not args.video_path:
-        print("Error: Must provide --video_url or --video_path.")
-        sys.exit(1)
-
-    # Download video if URL provided
-    local_video_path = args.video_path
-    if args.video_url:
-        print(f"[INFO] Downloading video from: {args.video_url}")
-        local_video_path = video_downloader.download_video(args.video_url, "downloads")
-        print(f"[INFO] Video downloaded to: {local_video_path}")
-
-    # Initialize database session
-    db_session = db_utils.init_db(config.DB_PATH)
-
+def process_single_video(db_session, video_url, video_path, confidence_threshold, frame_skip, force):
+    """
+    Process a single video given by video_url or video_path.
+    Applies reprocessing logic based on the 'force' flag.
+    """
+    # Download video if URL provided and local path not given
+    if video_url and not video_path:
+        print(f"[INFO] Downloading video from: {video_url}")
+        video_path = video_downloader.download_video(video_url, "downloads")
+        print(f"[INFO] Video downloaded to: {video_path}")
+    
     # Check if the video was processed before
     existing_video = None
-    if args.video_url:
-        existing_video = db_session.query(Video).filter(Video.url == args.video_url).first()
-    elif local_video_path:
-        existing_video = db_session.query(Video).filter(Video.local_path == local_video_path).first()
+    if video_url:
+        existing_video = db_session.query(Video).filter(Video.url == video_url).first()
+    elif video_path:
+        existing_video = db_session.query(Video).filter(Video.local_path == video_path).first()
 
-    if existing_video:
+    if existing_video and not force:
         response = input("This video has been processed before. Do you want to proceed with a new analysis? (y/n): ")
         if response.lower() != 'y':
-            print("Exiting without reprocessing.")
-            db_session.close()
-            sys.exit(0)
+            print("Skipping video processing.")
+            return
 
     # Record start time for processing
     start_time = datetime.now()
@@ -89,22 +56,22 @@ def main():
     # Create or retrieve video record
     video_id = db_utils.insert_video_record(
         db_session,
-        url=args.video_url or local_video_path,
-        local_path=local_video_path,
+        url=video_url or video_path,
+        local_path=video_path,
         processing_date=datetime.now()
     )
 
     # Initialize plate detector
-    plate_detector = YoloPlateDetector(model_path=config.DEFAULT_MODEL_PATH, conf_threshold=args.confidence_threshold)
+    plate_detector = YoloPlateDetector(model_path=config.DEFAULT_MODEL_PATH, conf_threshold=confidence_threshold)
 
     # Process video frames
     video_reader.process_video(
-        video_path=local_video_path,
+        video_path=video_path,
         detector=plate_detector,
         ocr_function=extract_text_from_image,
         db_session=db_session,
         video_id=video_id,
-        frame_skip=args.frame_skip
+        frame_skip=frame_skip
     )
 
     # Record end time after processing
@@ -114,7 +81,7 @@ def main():
     total_processing_time = end_time - start_time
 
     # Get video duration
-    video_duration = get_video_duration(local_video_path)
+    video_duration = get_video_duration(video_path)
 
     print("[INFO] Processing complete.")
     print(f"[INFO] Total processing time: {total_processing_time}")
@@ -127,7 +94,80 @@ def main():
     else:
         print("[WARN] Unable to determine video duration.")
 
-    db_session.close()
+parser = argparse.ArgumentParser(
+    description="License Plate Detection and OCR from YouTube/Local Videos."
+)
+parser.add_argument(
+    "--video_url",
+    help="URL of a single YouTube video (if you want to download)",
+    default=None
+)
+parser.add_argument(
+    "--video_path",
+    help="Local path to a single video file (if already downloaded)",
+    default=None
+)
+parser.add_argument(
+    "--video_list_file",
+    help="Path to text file with multiple video URLs",
+    default=None
+)
+parser.add_argument(
+    "--confidence_threshold",
+    help="Confidence threshold for plate detection (0.0 - 1.0)",
+    default=0.5,
+    type=float
+)
+parser.add_argument(
+    "--frame_skip",
+    help="Number of frames to skip between detection attempts",
+    default=5,
+    type=int
+)
+parser.add_argument(
+    "--force",
+    help="Force reprocessing without asking if video was processed before",
+    action="store_true"
+)
 
-if __name__ == "__main__":
-    main()
+args = parser.parse_args()
+
+# Ensure at least one video source is provided
+if not args.video_list_file and not args.video_url and not args.video_path:
+    print("Error: Must provide --video_url, --video_path or --video_list_file.")
+    sys.exit(1)
+
+# Initialize database session once for all processing
+db_session = db_utils.init_db(config.DB_PATH)
+
+if args.video_list_file:
+    # Read video URLs from the provided text file
+    try:
+        with open(args.video_list_file, "r") as f:
+            video_urls = [line.strip() for line in f if line.strip()]
+    except Exception as e:
+        print(f"Error reading video list file: {e}")
+        sys.exit(1)
+
+    for url in video_urls:
+        print(f"\n[INFO] Starting processing for video: {url}")
+        process_single_video(
+            db_session=db_session,
+            video_url=url,
+            video_path=None,
+            confidence_threshold=args.confidence_threshold,
+            frame_skip=args.frame_skip,
+            force=args.force
+        )
+else:
+    # Process a single video based on provided URL or path
+    process_single_video(
+        db_session=db_session,
+        video_url=args.video_url,
+        video_path=args.video_path,
+        confidence_threshold=args.confidence_threshold,
+        frame_skip=args.frame_skip,
+        force=args.force
+    )
+
+db_session.close()
