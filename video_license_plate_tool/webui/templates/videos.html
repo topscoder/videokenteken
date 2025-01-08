@@ -3,16 +3,18 @@
 <h2>Videos Analyzed {{ videos|length }}</h2>
 
 {% if videos and videos|length > 0 %}
-  <ul>
-    {% for v in videos %}
-      <li>
-        Processed at: <strong>{{ v.processing_date }}</strong> &mdash;
-        <a href="{{ v.url }}" target="_blank">
-            {{ v.url }}
-        </a>
-      </li>
-    {% endfor %}
-  </ul>
+  {% for v in videos %}
+    {# Extract the video ID from the embed URL #}
+    {% set video_id = v.url | replace('https://www.youtube.com/watch?v=', '') %}
+    <div>
+      <a href="https://www.youtube.com/watch?v={{ video_id }}" target="_blank">
+        <img src="https://img.youtube.com/vi/{{ video_id }}/hqdefault.jpg" 
+             alt="YouTube Video Thumbnail"
+             width="480" height="315">
+      </a>
+      <p>{{ v.processing_date }}</p>
+    </div>
+  {% endfor %}
 {% else %}
   <p>No videos found.</p>
 {% endif %}

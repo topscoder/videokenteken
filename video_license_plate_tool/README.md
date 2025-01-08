@@ -14,17 +14,12 @@ https://docs.ultralytics.com/guides/coral-edge-tpu-on-raspberry-pi/#export-to-ed
 
 # Video to analyze
 
-https://www.youtube.com/@ExoticCarspotters
+https://www.youtube.com/watch?v=wE5d_MMa7gI
 
+https://www.youtube.com/watch?v=czb2kK-IS5Y
 
-https://www.youtube.com/watch?v=7XitRchpBgs
+https://www.youtube.com/watch?v=9d3xf2sgrsA
 
-https://www.youtube.com/watch?v=K-9a5gUAAKE
+https://www.youtube.com/watch?v=wFlN9u4yR0w
 
-https://www.youtube.com/watch?v=69y75Z0i9cw
-
-https://www.youtube.com/watch?v=bIcojglIkC8
-
-https://www.youtube.com/watch?v=6A667O19C7g
-
-https://www.youtube.com/watch?v=lnhUMPUXTcQ
+https://www.youtube.com/watch?v=6JBNeLJKoOw

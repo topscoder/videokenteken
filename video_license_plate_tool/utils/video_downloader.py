@@ -1,6 +1,7 @@
 # utils/video_downloader.py
 
 import os
+import re
 # from pytube import YouTube
 from pytubefix import YouTube
 
@@ -19,5 +20,12 @@ def download_video(url, output_path=None):
     if not stream:
         raise ValueError("No suitable stream found for this video.")
     
-    downloaded_file = stream.download(output_path=output_path)
+    # Use a regex to extract the video ID from the URL
+    target_filename = None
+    match = re.search(r"v=([^&]+)", yt.watch_url)
+    if match:
+        video_id = match.group(1)
+        target_filename = video_id + ".mp4"
+        
+    downloaded_file = stream.download(output_path=output_path, filename=target_filename)
     return downloaded_file
