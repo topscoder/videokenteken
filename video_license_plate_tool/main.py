@@ -1,12 +1,29 @@
 import argparse
 import os
 import sys
+import cv2  # Import OpenCV for duration calculation
 from datetime import datetime
 
 from utils import video_downloader, video_reader, config
 from db import db_utils
 from detectors.yolo_detector import YoloPlateDetector
 from ocr.ocr_utils import extract_text_from_image
+
+def get_video_duration(video_path):
+    """
+    Retrieve the total duration of the video in seconds using OpenCV.
+    """
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print(f"Error: Unable to open video file {video_path}")
+        return None
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+    cap.release()
+    if fps > 0:
+        return frame_count / fps
+    else:
+        return None
 
 def main():
     parser = argparse.ArgumentParser(
@@ -41,6 +58,9 @@ def main():
         print("Error: Must provide --video_url or --video_path.")
         sys.exit(1)
 
+    # Record start time for processing
+    start_time = datetime.now()
+
     # Download video if URL provided
     local_video_path = args.video_path
     if args.video_url:
@@ -48,7 +68,7 @@ def main():
         local_video_path = video_downloader.download_video(args.video_url, "downloads")
         print(f"[INFO] Video downloaded to: {local_video_path}")
 
-    # Init database
+    # Initialize database
     db_session = db_utils.init_db(config.DB_PATH)
 
     # Create or retrieve video record
@@ -72,7 +92,25 @@ def main():
         frame_skip=args.frame_skip
     )
 
+    # Record end time after processing
+    end_time = datetime.now()
+
+    # Calculate total processing time
+    total_processing_time = end_time - start_time
+
+    # Get video duration
+    video_duration = get_video_duration(local_video_path)
+
     print("[INFO] Processing complete.")
+    print(f"[INFO] Total processing time: {total_processing_time}")
+    if video_duration is not None:
+        # Format duration as HH:MM:SS
+        hours = int(video_duration // 3600)
+        minutes = int((video_duration % 3600) // 60)
+        seconds = int(video_duration % 60)
+        print(f"[INFO] Total video duration: {hours:02d}:{minutes:02d}:{seconds:02d} (HH:MM:SS)")
+    else:
+        print("[WARN] Unable to determine video duration.")
 
 if __name__ == "__main__":
     main()
