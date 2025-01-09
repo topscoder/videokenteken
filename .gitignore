@@ -4,3 +4,4 @@ venv/
 __pycache__/
 *.pyc
 video_license_plate_tool/.DS_Store
+video_license_plate_tool/videos.txt
