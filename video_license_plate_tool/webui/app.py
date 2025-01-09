@@ -4,12 +4,25 @@ A simple Flask-based web UI to search for license plates in our SQLite database
 and link to the relevant YouTube timestamps.
 """
 
+import itertools
 from flask import Flask, request, render_template
 from sqlalchemy import create_engine, or_
 from sqlalchemy.orm import sessionmaker
 from db.models import Base, Video, Plate
 import os
 import re
+
+
+similar_map = {
+    '8': ['8', 'B'],
+    'B': ['B', '8'],
+    '1': ['1', 'I', 'L'],
+    'I': ['I', '1', 'L'],
+    'L': ['L', '1', 'I'],
+    '0': ['0', 'O'],
+    'O': ['O', '0'],
+    # Add more mappings as needed
+}
 
 app = Flask(__name__)
 
@@ -85,6 +98,22 @@ def plates():
     session.close()
     return render_template("plates.html", plates=output_results)
 
+def generate_patterns(query, similar_map):
+    """
+    Given a query string, generate all possible patterns by substituting each character 
+    with its similar characters based on similar_map.
+    """
+    # Convert query to uppercase to standardize comparisons.
+    query = query.upper()
+    
+    # For each character in the query, get the list of possible similar characters (or itself if none).
+    char_options = [similar_map.get(char, [char]) for char in query]
+    
+    # Generate all combinations of characters for the query based on similarity options.
+    patterns = [''.join(combo) for combo in itertools.product(*char_options)]
+    
+    return patterns
+
 @app.route("/search", methods=["POST"])
 def search():
     """
@@ -97,12 +126,18 @@ def search():
 
     session = get_db_session()
 
+    # Generate all similar patterns for the input query.
+    patterns = generate_patterns(plate_query, similar_map)
+
+    # Create a list of LIKE filters for each pattern.
+    like_filters = [Plate.plate_text.like(f"%{pattern}%") for pattern in patterns]
+
     # We do a partial, case-insensitive match (SQLite uses case-insensitive for LIKE by default)
     # Alternatively, you can do: Plate.plate_text.ilike(f'%{plate_query}%') with PostgreSQL, etc.
     results = (
         session.query(Plate)
         .join(Video, Plate.video_id == Video.id)
-        .filter(Plate.plate_text.like(f"%{plate_query}%"))
+        .filter(or_(*like_filters))
         .all()
     )
 

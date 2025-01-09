@@ -26,17 +26,14 @@ def get_video_duration(video_path):
     else:
         return None
 
-def process_single_video(db_session, video_url, video_path, confidence_threshold, frame_skip, force):
+def process_single_video(db_session, video_url, video_path, confidence_threshold, frame_skip, force, skip):
     """
     Process a single video given by video_url or video_path.
     Applies reprocessing logic based on the 'force' flag.
     """
-    # Download video if URL provided and local path not given
-    if video_url and not video_path:
-        print(f"[INFO] Downloading video from: {video_url}")
-        video_path = video_downloader.download_video(video_url, "downloads")
-        print(f"[INFO] Video downloaded to: {video_path}")
-    
+    # Record start time for processing
+    start_time = datetime.now()
+
     # Check if the video was processed before
     existing_video = None
     if video_url:
@@ -44,14 +41,20 @@ def process_single_video(db_session, video_url, video_path, confidence_threshold
     elif video_path:
         existing_video = db_session.query(Video).filter(Video.local_path == video_path).first()
 
-    if existing_video and not force:
+    if existing_video and not force and not skip:
         response = input("This video has been processed before. Do you want to proceed with a new analysis? (y/n): ")
         if response.lower() != 'y':
-            print("Skipping video processing.")
+            print("Skipping video reprocessing.")
             return
+    elif existing_video and skip:
+        print("Skipping video reprocessing.")
+        return
 
-    # Record start time for processing
-    start_time = datetime.now()
+    # Download video if URL provided and local path not given
+    if video_url and not video_path:
+        print(f"[INFO] Downloading video from: {video_url}")
+        video_path = video_downloader.download_video(video_url, "downloads")
+        print(f"[INFO] Video downloaded to: {video_path}")
 
     # Create or retrieve video record
     video_id = db_utils.insert_video_record(
@@ -129,6 +132,11 @@ parser.add_argument(
     help="Force reprocessing without asking if video was processed before",
     action="store_true"
 )
+parser.add_argument(
+    "--skip",
+    help="Skip reprocessing if video was processed before",
+    action="store_true"
+)
 
 args = parser.parse_args()
 
@@ -157,7 +165,8 @@ if args.video_list_file:
             video_path=None,
             confidence_threshold=args.confidence_threshold,
             frame_skip=args.frame_skip,
-            force=args.force
+            force=args.force,
+            skip=args.skip
         )
 else:
     # Process a single video based on provided URL or path
@@ -167,7 +176,8 @@ else:
         video_path=args.video_path,
         confidence_threshold=args.confidence_threshold,
         frame_skip=args.frame_skip,
-        force=args.force
+        force=args.force,
+        skip=args.skip
     )
 
 db_session.close()
