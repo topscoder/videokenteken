@@ -35,7 +35,7 @@ class YoloPlateDetector:
         # Use torch.autocast for mixed precision inference on GPU
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         with torch.cuda.amp.autocast(enabled=(device == 'cuda')):
-            results = self.model.predict(source=rgb_frame, imgsz=640, conf=self.conf_threshold)
+            results = self.model.predict(source=rgb_frame, imgsz=1280, conf=self.conf_threshold)
 
         detections = []
         for box in results[0].boxes:
@@ -57,7 +57,7 @@ class YoloPlateDetector:
         device_type = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         with torch.amp.autocast(device_type=device_type):
-            results = self.model.predict(source=rgb_frames, imgsz=640, conf=self.conf_threshold)
+            results = self.model.predict(source=rgb_frames, imgsz=1280, conf=self.conf_threshold)
         
         all_detections = []
         for result in results:

@@ -6,7 +6,7 @@ stride: 32
 task: detect
 batch: 1
 imgsz:
-- 640
-- 640
+- 1280
+- 1280
 names:
   0: license_plate
