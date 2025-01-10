@@ -8,7 +8,7 @@ import queue
 import threading
 
 
-batch_size = 10
+batch_size = 20
 
 def frame_loader(cap, frame_queue, frame_skip):
     frame_count = 0
