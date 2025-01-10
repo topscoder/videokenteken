@@ -45,3 +45,32 @@ python main.py --video_list_file videos.txt --confidence_threshold 0.5 --frame_s
 ```shell
 python main.py --video_list_file videos.txt --confidence_threshold 0.5 --frame_skip 5 --skip
 ```
+
+## YouTube Channels
+
+* De Car Guys https://www.youtube.com/@decarguys
+* Gumbal  https://www.youtube.com/@Gumbal
+* Auto Addiction  https://www.youtube.com/@AutoAddictionMedia
+* Autoblog  https://www.youtube.com/@Autoblog
+* AutoWeek  https://www.youtube.com/@AutoWeek
+* ANWB      https://www.youtube.com/@ANWB
+* Autovisie https://www.youtube.com/@autovisie
+* DriversDream  https://www.youtube.com/@DriversDreamNL
+* EP Autoimport   https://www.youtube.com/@EPautoimport
+* Twins.TV  https://www.youtube.com/@Twins.TV_
+* RJTDBF   https://www.youtube.com/channel/UCz-QchirkydlNGbbc8K59Xw
+* Autobedrijf John van der Rijt   https://www.youtube.com/@AutobedrijfJohnvanderRijt
+* EmreDrives  https://www.youtube.com/@EmreDrives
+* AutoRAI TV  https://www.youtube.com/@AutoRAITV
+* Stipt Polish Point  https://www.youtube.com/@StiptPolishPoint
+* Vierenzestig Porsche Portal https://www.youtube.com/@vierenzestig
+* DutchRiders https://www.youtube.com/@DutchRiders1
+* AutoTopNL https://www.youtube.com/@AutoTopNL
+* Werner Budding https://www.youtube.com/@WernerBudding
+* cvdzijden - Supercar Videos https://www.youtube.com/@cvdzijden
+* CarSpotterQVS   https://www.youtube.com/channel/UCnw5r8QG5VoaYRjI4_3Sd1Q
+* Lars Mars Cars  https://www.youtube.com/@LarsMarsCars
+* Dutch Motorsport  https://www.youtube.com/@DutchMotorsport
+* Sem Meijer  https://www.youtube.com/channel/UCgPwPqzvzDgKSq-DhcZS11Q
+* JvDSupercars  https://www.youtube.com/channel/UCMxbeeKNk42Jv33WbvpGMyQ
+* 112NoordWestNL  https://www.youtube.com/channel/UCe9L_7nQEO7j5QDjzEO_-Ew
