@@ -43,3 +43,26 @@ class YoloPlateDetector:
             conf = box.conf[0].item()
             detections.append((x1, y1, x2, y2, conf))
         return detections
+
+    def detect_batch(self, frames):
+        """
+        Runs detection on a batch of frames.
+        :param frames: list of np.ndarray frames in BGR format.
+        :return: list of detections for each frame, where each detection is a list of (x1, y1, x2, y2, confidence).
+        """
+        # Convert each frame to RGB
+        rgb_frames = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in frames]
+        
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        with torch.cuda.amp.autocast(enabled=(device == 'cuda')):
+            results = self.model.predict(source=rgb_frames, imgsz=640, conf=self.conf_threshold)
+        
+        all_detections = []
+        for result in results:
+            detections = []
+            for box in result.boxes:
+                x1, y1, x2, y2 = box.xyxy[0].tolist()
+                conf = box.conf[0].item()
+                detections.append((x1, y1, x2, y2, conf))
+            all_detections.append(detections)
+        return all_detections
