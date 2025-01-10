@@ -26,7 +26,7 @@ def is_valid_plate(text):
     # Adjust pattern as necessary to suit your region's plate formats.
     # pattern = re.compile(r'^[A-Z0-9\-]{5,10}$')
     # return bool(pattern.match(text))
-    return len(is_valid_plate) == 6
+    return len(text) == 6
 
 def process_video(video_path, detector, ocr_function, db_session, video_id, frame_skip=5):
     """
