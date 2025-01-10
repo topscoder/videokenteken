@@ -87,6 +87,12 @@ def process_single_video(db_session, video_url, video_path, confidence_threshold
     video_duration = get_video_duration(video_path)
 
     print("[INFO] Processing complete.")
+
+    # Remove the video file if it was downloaded
+    if video_url and video_path:
+        os.remove(video_path)
+        print(f"[INFO] Removed downloaded video file: {video_path}")
+
     print(f"[INFO] Total processing time: {total_processing_time}")
     if video_duration is not None:
         # Format duration as HH:MM:SS
