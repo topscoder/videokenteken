@@ -1,37 +1,33 @@
-
-# Technical Specification: Video License Plate Analysis Tool
+# Technical Specification: Enhanced Video License Plate Analysis Tool
 
 ## 1. Overview
 
-The purpose of this tool is to:
-1. **Download** and/or **process** videos (preferably from YouTube).
-2. **Identify** visible license plates in video frames.
-3. **Extract** the text from these license plates.
-4. **Store** the results—license plate string, confidence score, video URL, and frame timestamps—in a database.
-5. **Allow** configuration of the confidence threshold so that we can calibrate for minimal false positives vs. coverage.
+This tool analyzes video files (primarily YouTube videos) to detect visible license plates, extract their text via OCR, store the results in a database, and provide a search interface to retrieve information based on license plate queries. The system has been enhanced with features to:
 
-This specification outlines the steps, technologies, and design choices needed to create a robust solution that runs on a macOS environment with an Intel Core i9 CPU, and available GPUs (Radeon Pro 560X and Intel UHD Graphics 630).
+- Measure and report processing time and video duration.
+- Check for previously analyzed videos and prompt for reprocessing or force processing.
+- Process multiple videos in batch using various sources:
+  - A list of video URLs from a text file.
+  - All videos from a YouTube playlist.
+  - All videos from a YouTube channel.
+- Account for OCR misreads by handling similar characters during license plate search queries.
 
 ---
 
 ## 2. Requirements
 
-1. **Operating System**: macOS (Intel Core i9 CPU)
-   - GPU: Radeon Pro 560X (4 GB) and Intel UHD Graphics 630 (1536 MB)
-2. **Primary Language**: Python 3.8+ 
+1. **Operating System**: macOS (Intel Core i9 CPU) or Raspberry Pi 4.
+2. **Primary Language**: Python 3.8+.
 3. **Libraries & Tools**:
-   - Video processing: [FFmpeg](https://ffmpeg.org/) and/or [OpenCV](https://opencv.org/)
-   - Object detection / Model: YOLO, or any CNN-based detection framework that supports license plate detection
-   - OCR for plate text recognition: [Tesseract](https://github.com/tesseract-ocr/tesseract) or specialized ALPR (Automatic License Plate Recognition) frameworks
-   - YouTube Video Downloading: [pytube](https://github.com/pytube/pytube) or [youtube-dl](https://github.com/ytdl-org/youtube-dl)
-   - Database: SQLite (for local quick storage) or PostgreSQL/MySQL if needed for scale
-4. **Confidence Threshold**: A configurable numeric parameter for filtering out low-probability detections.
-5. **Data to Store**:
-   - Video metadata: video URL, local path
-   - Timestamps of detections
-   - Plate text (string)
-   - Detection confidence
-   - Possibly bounding box coordinates for debugging
+   - Video processing: OpenCV, FFmpeg.
+   - Object detection: Ultralytics YOLO (e.g., YOLOv8).
+   - OCR: Tesseract, PyTesseract.
+   - YouTube downloading and data extraction: Pytube.
+   - Database: SQLite, SQLAlchemy.
+   - Web framework: Flask (for the search UI).
+4. **Additional Python Packages**: 
+   - Standard libraries: `argparse`, `datetime`, `itertools`, etc.
+   - Other dependencies as required for similarity mapping and YouTube playlist/channel handling.
 
 ---
 
@@ -39,136 +35,103 @@ This specification outlines the steps, technologies, and design choices needed t
 
 ### 3.1 High-Level Workflow
 
-1. **Video Acquisition**: 
-   - User provides a YouTube URL (or local video file path).
-   - Tool downloads the video (if YouTube URL) to a local directory or reads existing file.
+1. **Video Acquisition**:
+   - Accepts single video URLs/paths, a text file with multiple video URLs, a YouTube playlist URL, or a YouTube channel URL.
+   - Downloads videos from YouTube as necessary.
 
-2. **Frame Extraction**:
-   - The tool either processes the video frame-by-frame or at a chosen interval (e.g., every N frames/seconds).
-   - Extract frames using OpenCV or FFmpeg.
+2. **Pre-Processing Checks**:
+   - Checks the database for prior processing of the video(s).
+   - If a video has been processed before, prompts the user to decide whether to reprocess or uses a force flag to bypass the prompt.
 
-3. **License Plate Detection**:
-   - A pre-trained license plate detection model (e.g., YOLO-based or another approach) runs on each extracted frame.
-   - If a bounding box is found for a license plate, record:
-     - The bounding box coordinates
-     - The detection confidence
+3. **Video Processing**:
+   - Processes each video using YOLO for license plate detection and OCR for text extraction.
+   - Measures the total processing time for each video.
+   - Calculates and reports the total duration of the video.
 
-4. **Text Recognition (OCR)**:
-   - Once a bounding box is found with high-enough confidence, pass that region to an OCR engine (e.g., Tesseract).
-   - Extract the text of the plate.
+4. **Database Storage**:
+   - Stores video metadata, timestamps, detected license plate texts, confidence scores, and bounding box coordinates.
 
-5. **Result Filtering**:
-   - Compare the detection confidence with the user-defined threshold. 
-   - If above threshold, accept the result; otherwise discard.
-
-6. **Database Storage**:
-   - Store the following data:
-     - Video reference (URL or ID)
-     - Timestamp of frame in the video
-     - Plate text
-     - Detection confidence
-     - (Optional) bounding box coordinates
-
-7. **Result Output / Logging**:
-   - Provide a summary or log file with discovered plates, timestamps, and confidence levels.
-   - Provide an interface (CLI, web, or otherwise) to query results from the database.
+5. **Search Interface**:
+   - Provides a web-based UI with Flask for searching license plates.
+   - Implements character similarity mapping to account for OCR misreads in search queries.
+   - Lists search results with uppercase license plates and links to YouTube timestamps.
 
 ---
 
 ## 4. Detailed Implementation Steps
 
 ### 4.1 Environment Setup
-1. **Install Python 3.8+** (if not already on macOS).
-2. **Install Libraries**:
-   - `OpenCV` (e.g., `pip install opencv-python`)
-   - `pytube` or `youtube-dl`
-   - `ffmpeg` (e.g., `brew install ffmpeg`)
-   - `Tesseract` (e.g., `brew install tesseract`)
-   - `PyTesseract` (Python wrapper: `pip install pytesseract`)
-   - `SQLAlchemy` or any Python DB-API connector if using SQLite (e.g., `sqlite3` is included in Python by default).
-3. **Model Installation** (Optional, if using YOLO):
-   - You can either download a pre-trained license plate YOLO model or train your own. 
-   - For example, if using YOLOv5/YOLOv8: `pip install ultralytics` (for YOLOv8).
+- Install Python 3.8+ and required libraries as previously detailed.
+- Configure Tesseract and YOLO model paths.
+- Ensure the database schema is set up using SQLAlchemy models.
 
-### 4.2 Video Acquisition
-1. **YouTube Download**:
-   - Use `pytube.YouTube(url)` to download the video.
-   - Save it to a local path (`~/Downloads/LicensePlateVideos`, for instance).
-2. **Local Video Input**:
-   - If a user already has a local video, simply reference that path.
+### 4.2 Video Processing Enhancements
 
-### 4.3 Frame Extraction
-1. **OpenCV**:
-   - Use `cv2.VideoCapture(video_path)` to open the video.
-   - Decide on a frame rate or interval for extraction (e.g., every Nth frame or every 1 second).
-   - Read frames in a loop until the video ends.
+#### Command-Line Options
+- `--video_url`: URL of a single YouTube video.
+- `--video_path`: Local path to a single video file.
+- `--video_list_file`: Path to a text file with multiple video URLs.
+- `--playlist_url`: URL of a YouTube playlist to process all videos from.
+- `--channel_url`: URL of a YouTube channel to process all videos from.
+- `--confidence_threshold`: Confidence threshold for license plate detection.
+- `--frame_skip`: Number of frames to skip between detection attempts.
+- `--force`: Force reprocessing without prompting if the video was analyzed before.
 
-2. **Frame Processing**:
-   - Each frame is passed to the detection model for bounding box predictions.
-   - Track the current timestamp in seconds or frame index (`frame_count / fps`).
+#### Main Script (`main.py`)
+- **Initialization**:
+  - Parse arguments, including new options for playlists and channels.
+  - Validate input ensuring at least one video source is provided.
+  - Initialize a single database session for processing.
 
-### 4.4 Plate Detection Model
-1. **Load the Model**:
-   - If using a YOLO-based approach (e.g., YOLOv5, YOLOv8), load it via the relevant library.
-2. **Configure Confidence Threshold**:
-   - Model’s internal threshold can be set, but also store this threshold in code so it’s easy to adjust later.
-3. **Inference**:
-   - For each frame, run inference.
-   - Retrieve bounding boxes labeled specifically as "license plate" (or the relevant class name).
-   - Retrieve confidence scores for these bounding boxes.
+- **Source Handling**:
+  - If `--video_list_file` is provided, read video URLs from the file.
+  - If `--playlist_url` is provided, use `pytube.Playlist` to retrieve all video URLs from the playlist.
+  - If `--channel_url` is provided, use `pytube.Channel` to retrieve all video URLs from the channel.
+  - Aggregate all collected URLs into a list for batch processing.
 
-### 4.5 OCR and Plate Extraction
-1. **Preprocess the License Plate Region**:
-   - Crop the bounding box from the frame.
-   - Optionally, apply grayscale or thresholding for better OCR results.
-2. **Apply OCR**:
-   - Use `pytesseract.image_to_string(cropped_frame, config='--psm 7')` (for single text line).
-3. **Extract Text**:
-   - Clean up the resulting text (remove whitespace, non-alphanumeric chars, etc.).
-   - If empty or nonsensical, discard.
+- **Processing Single Video**:
+  - Encapsulate logic in a `process_single_video()` function, handling downloading, database checks, and video analysis as previously specified.
+  - For each video URL in the aggregated list, call `process_single_video()` with appropriate parameters.
 
-### 4.6 Database Storage
-1. **Database Schema** (example with SQLite):
-   - **Videos** table:
-     - `id` (PK)
-     - `url` (TEXT)
-     - `local_path` (TEXT)
-     - `processing_date` (DATETIME)
-   - **Plates** table:
-     - `id` (PK)
-     - `video_id` (FK -> Videos)
-     - `timestamp` (REAL or INTEGER representing frame time in seconds)
-     - `plate_text` (TEXT)
-     - `confidence` (REAL)
-     - `bbox` (TEXT or store x1, y1, x2, y2 as separate columns)
-2. **Insertion Flow**:
-   - When a video is processed, insert a new record in `Videos` if not already present.
-   - For each plate detection, insert a row in `Plates`.
+- **Measurement and Reporting**:
+  - For each video, record start and end times, calculate total processing time, and determine video duration.
+  - Print out processing metrics for user information.
 
-### 4.7 Exposing Results
-1. **CLI**:
-   - For initial usage, a simple command-line interface can display or dump results.
-2. **Reporting**:
-   - Provide a way (CSV or JSON output) to export all detections for a particular video.
+### 4.3 Database Schema & Utilities
+- Use existing `Video` and `Plate` models.
+- `db_utils` should provide functions for:
+  - Database initialization (`init_db`).
+  - Inserting video and plate records.
+  - Querying for existing videos.
 
----
+### 4.4 Web UI Search Enhancements
+- **Similarity Mapping**:  
+  Create a similarity map for characters frequently confused by OCR.
 
-## 5. Configuration & Calibration
+  ```python
+  similar_map = {
+      '8': ['8', 'B'],
+      'B': ['B', '8'],
+      '1': ['1', 'I', 'L'],
+      'I': ['I', '1', 'L'],
+      'L': ['L', '1', 'I'],
+      '0': ['0', 'O'],
+      'O': ['O', '0'],
+      # Add additional mappings as needed
+  }
+- **Pattern Generation**:
+   Implement a function generate_patterns(query, similar_map) that creates all plausible variants of the search query by substituting characters based on the similarity map.
+- **Search Query Modification**:
+   Modify the search function to:
+   * Generate patterns based on the user input.
+   * Build a SQLAlchemy query using OR conditions to match any of the generated patterns with .like() filters.
+- **Web UI Flow**:
+   * User enters a license plate (e.g., "X120BF").
+   * Application generates variants (e.g., "X120BF", "X1208F", etc.).
+   * Searches database and lists all matching entries.
+   * Each result shows the license plate in uppercase and provides a clickable link to the YouTube video at the timestamp where the plate was detected.
 
-- **Confidence Threshold**: 
-  - A single environment variable or argument (e.g., `--confidence-threshold 0.5`) to filter bounding boxes. 
-  - This threshold can also be set within the detection script or passed to the YOLO model at inference time.
-
-- **Frame Skipping**:
-  - Another parameter (e.g., `--frame-skip 5`) for how many frames to skip before analyzing the next frame. 
-  - This helps reduce computation time if the video is long and plates appear infrequently.
-
----
-
-## 6. Code Structure
-
-Proposed project directory layout:
-
+### 5. Code Structure
 ```
 video_license_plate_tool/
 ├── README.md
@@ -179,100 +142,44 @@ video_license_plate_tool/
 ├── ocr/
 │   └── ocr_utils.py
 ├── db/
+│   ├── __init__.py
 │   ├── models.py
 │   └── db_utils.py
 ├── utils/
 │   ├── config.py
 │   ├── video_downloader.py
 │   └── video_reader.py
+├── webui/
+│   ├── app.py
+│   ├── requirements.txt
+│   └── templates/
+│       ├── layout.html
+│       ├── search.html
+│       └── results.html
 └── tests/
     └── test_*.py
 ```
 
+* `main.py`:
+Updated to handle multiple video sources including playlists and channels, force reprocessing, measure processing time, calculate video duration, and prompt user on reprocessing.
 
-### 6.1 `main.py`
-- **CLI entry point** to run the entire pipeline:
-  1. Parse arguments (video URL/path, confidence threshold, frame skip).
-  2. Download video if URL is provided.
-  3. Initialize database connection.
-  4. Call detection pipeline.
-  5. Store results.
-  6. Print or export summary.
+* Database (`db/`):
+Used for storing and querying video processing records.
 
-### 6.2 `detectors/yolo_detector.py`
-- **`YoloDetector` Class**:
-  - Loads YOLO model.
-  - Accepts frames, returns bounding boxes + confidence.
+* Web UI (`webui/`):
+Provides a search interface with enhanced search capability to handle OCR misreads.
 
-### 6.3 `ocr/ocr_utils.py`
-- **`extract_text_from_image`** function:
-  - Accepts cropped image array.
-  - Preprocess image.
-  - Calls `pytesseract`.
-  - Returns cleaned text.
+### 6. Additional Considerations
 
-### 6.4 `db/models.py`
-- **SQLAlchemy** or raw SQLite schema definitions:
-  - `Video` model
-  - `Plate` model
+- **Performance Optimization**:
+Care must be taken when generating search patterns for long queries with many ambiguous characters, as the number of combinations can grow quickly.
 
-### 6.5 `db/db_utils.py`
-- Functions to:
-  - Initialize DB.
-  - Insert video/plate records.
-  - Query results.
+- **Error Handling**:
+Implement robust error handling for network issues (e.g., fetching playlist/channel videos), file I/O, video download failures, and database operations.
 
-### 6.6 `utils/video_downloader.py`
-- **`download_video(url)`**:
-  - Uses `pytube` or `youtube_dl`.
-  - Returns local file path.
+- **Scalability & Extensibility**:
+The architecture supports batch processing from various sources and can be extended with more advanced search algorithms or additional video sources.
 
-### 6.7 `utils/video_reader.py`
-- **`process_video(video_path, detector, ocr, db_connection, config)`**:
-  - Opens video file with OpenCV.
-  - Iterates frames, runs detection, calls OCR, saves to DB if above threshold.
+### 7. Conclusion
 
-### 6.8 `utils/config.py`
-- Store default constants/variables:
-  - Default confidence threshold
-  - Frame skip
-  - DB path
-  - Etc.
-
----
-
-## 7. Performance Considerations
-
-1. **GPU vs CPU**:
-   - YOLO or other detection frameworks typically benefit from GPU acceleration. 
-   - On macOS, official support for GPU acceleration (e.g., via Metal) might be limited depending on the framework. 
-   - If no GPU acceleration is readily available, the Intel Core i9 CPU may suffice but will be slower.
-2. **Batch Processing**:
-   - If performance becomes an issue, consider batch processing frames for detection.
-3. **Model Optimization**:
-   - Use half-precision or quantized models for faster inference if the chosen framework supports it.
-
----
-
-## 8. Deployment & Usage
-
-1. **Local Usage**:
-   - Create a Python virtual environment, install the dependencies (`pip install -r requirements.txt`).
-   - Run `python main.py --url <VIDEO_URL> --confidence-threshold 0.7 --frame-skip 5`.
-2. **Result Checking**:
-   - The script prints discovered plates with timestamps.
-   - Data is also stored in the SQLite database file, e.g., `license_plate_data.db`.
-
----
-
-## 9. Future Enhancements
-
-- **Advanced ALPR Libraries**: Instead of generic YOLO + Tesseract, use specialized ALPR frameworks like [OpenALPR](https://www.openalpr.com/) or others that might yield higher accuracy.
-- **Web-Based Dashboard**: Provide a front-end to visualize frames, bounding boxes, and search for particular plates across multiple videos.
-- **Scaling**: If large-scale usage is needed, containerize the app with Docker, use queue-based processing (e.g., RabbitMQ, Redis), and move to a hosted DB.
-
----
-
-## 10. Conclusion
-
-This technical specification outlines a robust approach for analyzing YouTube and local video files for visible license plates, extracting their text, and storing these results for future reference. The modular design, configurable thresholds, and straightforward architecture make it suitable for iterative improvement and scaling on macOS systems.
+This updated specification incorporates new functionalities to process videos from YouTube playlists and channels in addition to previous features. It maintains a consistent command-line interface and modular design, ensuring a logical user experience and scalable architecture. The enhanced search accommodates OCR errors, and the system now supports batch processing from multiple video sources with detailed reporting and control over reprocessing.

@@ -4,6 +4,8 @@ import sys
 import cv2  # OpenCV for duration calculation
 from datetime import datetime
 
+from pytube import Playlist, Channel  # For playlist and channel processing
+
 from utils import video_downloader, video_reader, config
 from db import db_utils
 from detectors.yolo_detector import YoloPlateDetector
@@ -26,14 +28,17 @@ def get_video_duration(video_path):
     else:
         return None
 
-def process_single_video(db_session, video_url, video_path, confidence_threshold, frame_skip, force, skip):
+def process_single_video(db_session, video_url, video_path, confidence_threshold, frame_skip, force):
     """
     Process a single video given by video_url or video_path.
     Applies reprocessing logic based on the 'force' flag.
     """
-    # Record start time for processing
-    start_time = datetime.now()
-
+    # Download video if URL provided and local path not given
+    if video_url and not video_path:
+        print(f"[INFO] Downloading video from: {video_url}")
+        video_path = video_downloader.download_video(video_url, "downloads")
+        print(f"[INFO] Video downloaded to: {video_path}")
+    
     # Check if the video was processed before
     existing_video = None
     if video_url:
@@ -41,20 +46,14 @@ def process_single_video(db_session, video_url, video_path, confidence_threshold
     elif video_path:
         existing_video = db_session.query(Video).filter(Video.local_path == video_path).first()
 
-    if existing_video and not force and not skip:
-        response = input("This video has been processed before. Do you want to proceed with a new analysis? (y/n): ")
+    if existing_video and not force:
+        response = input(f"This video ({video_url or video_path}) has been processed before. Proceed with new analysis? (y/n): ")
         if response.lower() != 'y':
-            print("Skipping video reprocessing.")
+            print("Skipping video processing.")
             return
-    elif existing_video and skip:
-        print("Skipping video reprocessing.")
-        return
 
-    # Download video if URL provided and local path not given
-    if video_url and not video_path:
-        print(f"[INFO] Downloading video from: {video_url}")
-        video_path = video_downloader.download_video(video_url, "downloads")
-        print(f"[INFO] Video downloaded to: {video_path}")
+    # Record start time for processing
+    start_time = datetime.now()
 
     # Create or retrieve video record
     video_id = db_utils.insert_video_record(
@@ -87,15 +86,8 @@ def process_single_video(db_session, video_url, video_path, confidence_threshold
     video_duration = get_video_duration(video_path)
 
     print("[INFO] Processing complete.")
-
-    # Remove the video file if it was downloaded
-    if video_url and video_path:
-        os.remove(video_path)
-        print(f"[INFO] Removed downloaded video file: {video_path}")
-
     print(f"[INFO] Total processing time: {total_processing_time}")
     if video_duration is not None:
-        # Format duration as HH:MM:SS
         hours = int(video_duration // 3600)
         minutes = int((video_duration % 3600) // 60)
         seconds = int(video_duration % 60)
@@ -106,84 +98,69 @@ def process_single_video(db_session, video_url, video_path, confidence_threshold
 parser = argparse.ArgumentParser(
     description="License Plate Detection and OCR from YouTube/Local Videos."
 )
-parser.add_argument(
-    "--video_url",
-    help="URL of a single YouTube video (if you want to download)",
-    default=None
-)
-parser.add_argument(
-    "--video_path",
-    help="Local path to a single video file (if already downloaded)",
-    default=None
-)
-parser.add_argument(
-    "--video_list_file",
-    help="Path to text file with multiple video URLs",
-    default=None
-)
-parser.add_argument(
-    "--confidence_threshold",
-    help="Confidence threshold for plate detection (0.0 - 1.0)",
-    default=0.5,
-    type=float
-)
-parser.add_argument(
-    "--frame_skip",
-    help="Number of frames to skip between detection attempts",
-    default=5,
-    type=int
-)
-parser.add_argument(
-    "--force",
-    help="Force reprocessing without asking if video was processed before",
-    action="store_true"
-)
-parser.add_argument(
-    "--skip",
-    help="Skip reprocessing if video was processed before",
-    action="store_true"
-)
+parser.add_argument("--video_url", help="URL of a single YouTube video", default=None)
+parser.add_argument("--video_path", help="Local path to a single video file", default=None)
+parser.add_argument("--video_list_file", help="Path to text file with multiple video URLs", default=None)
+parser.add_argument("--playlist_url", help="URL of a YouTube playlist", default=None)
+parser.add_argument("--channel_url", help="URL of a YouTube channel", default=None)
+parser.add_argument("--confidence_threshold", help="Confidence threshold for plate detection (0.0 - 1.0)", default=0.5, type=float)
+parser.add_argument("--frame_skip", help="Number of frames to skip between detection attempts", default=5, type=int)
+parser.add_argument("--force", help="Force reprocessing without asking if video was processed before", action="store_true")
 
 args = parser.parse_args()
 
 # Ensure at least one video source is provided
-if not args.video_list_file and not args.video_url and not args.video_path:
-    print("Error: Must provide --video_url, --video_path or --video_list_file.")
+if not any([args.video_url, args.video_path, args.video_list_file, args.playlist_url, args.channel_url]):
+    print("Error: Must provide at least one video source (--video_url, --video_path, --video_list_file, --playlist_url, or --channel_url).")
     sys.exit(1)
 
 # Initialize database session once for all processing
 db_session = db_utils.init_db(config.DB_PATH)
 
+# Aggregate video URLs from various sources
+video_sources = []  # List of tuples (video_url, video_path)
+
 if args.video_list_file:
-    # Read video URLs from the provided text file
     try:
         with open(args.video_list_file, "r") as f:
-            video_urls = [line.strip() for line in f if line.strip()]
+            for line in f:
+                url = line.strip()
+                if url:
+                    video_sources.append((url, None))
     except Exception as e:
         print(f"Error reading video list file: {e}")
         sys.exit(1)
 
-    for url in video_urls:
-        print(f"\n[INFO] Starting processing for video: {url}")
-        process_single_video(
-            db_session=db_session,
-            video_url=url,
-            video_path=None,
-            confidence_threshold=args.confidence_threshold,
-            frame_skip=args.frame_skip,
-            force=args.force,
-            skip=args.skip
-        )
-else:
-    # Process a single video based on provided URL or path
+if args.playlist_url:
+    try:
+        playlist = Playlist(args.playlist_url)
+        for video_url in playlist.video_urls:
+            video_sources.append((video_url, None))
+    except Exception as e:
+        print(f"Error processing playlist: {e}")
+
+if args.channel_url:
+    try:
+        channel = Channel(args.channel_url)
+        for video_url in channel.video_urls:
+            video_sources.append((video_url, None))
+    except Exception as e:
+        print(f"Error processing channel: {e}")
+
+# Single video_url or video_path handling if not batch
+if args.video_url or args.video_path:
+    video_sources.append((args.video_url, args.video_path))
+
+# Process each video in the aggregated list
+for video_url, video_path in video_sources:
+    print(f"\n[INFO] Starting processing for video: {video_url or video_path}")
     process_single_video(
         db_session=db_session,
-        video_url=args.video_url,
-        video_path=args.video_path,
+        video_url=video_url,
+        video_path=video_path,
         confidence_threshold=args.confidence_threshold,
         frame_skip=args.frame_skip,
-        force=args.force,
-        skip=args.skip
+        force=args.force
     )
 
 db_session.close()
