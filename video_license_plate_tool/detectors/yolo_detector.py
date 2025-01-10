@@ -53,8 +53,10 @@ class YoloPlateDetector:
         # Convert each frame to RGB
         rgb_frames = [cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) for frame in frames]
         
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        with torch.cuda.amp.autocast(enabled=(device == 'cuda')):
+        # Determine device type for autocast
+        device_type = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        with torch.amp.autocast(device_type=device_type):
             results = self.model.predict(source=rgb_frames, imgsz=640, conf=self.conf_threshold)
         
         all_detections = []
