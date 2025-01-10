@@ -65,6 +65,7 @@ def process_video(video_path, detector, ocr_function, db_session, video_id, fram
                     plate_crop = batch_frames[b_idx][int(y1):int(y2), int(x1):int(x2)]
                     plate_text = ocr_function(plate_crop)
                     if plate_text:
+                        print(f"Detected plate: {plate_text} | Confidence: {conf}")
                         bbox_dict = {"x1": float(x1), "y1": float(y1), "x2": float(x2), "y2": float(y2)}
                         insert_plate_record(
                             session=db_session,
@@ -86,6 +87,7 @@ def process_video(video_path, detector, ocr_function, db_session, video_id, fram
                 plate_crop = batch_frames[b_idx][int(y1):int(y2), int(x1):int(x2)]
                 plate_text = ocr_function(plate_crop)
                 if plate_text:
+                    print(f"Detected plate: {plate_text} | Confidence: {conf}")
                     bbox_dict = {"x1": float(x1), "y1": float(y1), "x2": float(x2), "y2": float(y2)}
                     insert_plate_record(
                         session=db_session,
