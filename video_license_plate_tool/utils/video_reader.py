@@ -5,7 +5,7 @@ import cv2
 from db.db_utils import insert_plate_record
 import json
 
-batch_size = 5
+batch_size = 20
 
 def process_video(video_path, detector, ocr_function, db_session, video_id, frame_skip=5):
     """
