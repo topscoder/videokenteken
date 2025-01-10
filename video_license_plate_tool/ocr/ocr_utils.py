@@ -4,6 +4,9 @@ import pytesseract
 import cv2
 import numpy as np
 import re
+import easyocr
+
+reader = easyocr.Reader(['en'], gpu=True)  # Enable GPU support
 
 def extract_text_from_image(image):
     """
@@ -17,10 +20,14 @@ def extract_text_from_image(image):
     else:
         gray = image
 
+    # Use EasyOCR:
+    results = reader.readtext(gray)
+    plate_text = " ".join([res[1] for res in results])
+
     # Optional: apply threshold
     # _, thresh = cv2.threshold(gray, 120, 255, cv2.THRESH_BINARY)
     # For simplicity, let's just feed gray
-    plate_text = pytesseract.image_to_string(gray, config="--psm 7")
+    # plate_text = pytesseract.image_to_string(gray, config="--psm 7")
 
     # Clean up result: remove non-alphanumeric characters and extra spaces
     plate_text = re.sub(r"[^a-zA-Z0-9]", "", plate_text)
