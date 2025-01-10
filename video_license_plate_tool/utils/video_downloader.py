@@ -16,7 +16,7 @@ def download_video(url, output_path=None):
         output_path = os.getcwd()
 
     yt = YouTube(url)
-    stream = yt.streams.filter(progressive=True, file_extension='mp4').order_by('resolution').desc().first()
+    stream = yt.streams.get_highest_resolution()
     if not stream:
         raise ValueError("No suitable stream found for this video.")
     
