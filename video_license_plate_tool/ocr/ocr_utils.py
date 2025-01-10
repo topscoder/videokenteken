@@ -15,13 +15,13 @@ def extract_text_from_image(image):
     :return: cleaned text from the plate
     """
     # Convert to grayscale if needed
-    if len(image.shape) == 3:
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    else:
-        gray = image
+    # if len(image.shape) == 3:
+    #     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    # else:
+    #     gray = image
 
     # Use EasyOCR:
-    results = reader.readtext(gray)
+    results = reader.readtext(image)
     plate_text = " ".join([res[1] for res in results])
 
     # Optional: apply threshold
