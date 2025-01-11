@@ -28,7 +28,7 @@ def get_video_duration(video_path):
     else:
         return None
 
-def process_single_video(db_session, video_url, video_path, confidence_threshold, frame_skip, force):
+def process_single_video(db_session, video_url, video_path, confidence_threshold, frame_skip, force, skip):
     """
     Process a single video given by video_url or video_path.
     Applies reprocessing logic based on the 'force' flag.
@@ -46,11 +46,15 @@ def process_single_video(db_session, video_url, video_path, confidence_threshold
     elif video_path:
         existing_video = db_session.query(Video).filter(Video.local_path == video_path).first()
 
-    if existing_video and not force:
-        response = input(f"This video ({video_url or video_path}) has been processed before. Proceed with new analysis? (y/n): ")
-        if response.lower() != 'y':
-            print("Skipping video processing.")
+    if existing_video:
+        if skip:
+            print(f"Skipping video {video_url or video_path} because it was processed before and --skip is enabled.")
             return
+        elif not force:
+            response = input(f"This video ({video_url or video_path}) has been processed before. Proceed with new analysis? (y/n): ")
+            if response.lower() != 'y':
+                print("Skipping video processing.")
+                return
 
     # Record start time for processing
     start_time = datetime.now()
@@ -106,6 +110,7 @@ parser.add_argument("--channel_url", help="URL of a YouTube channel", default=No
 parser.add_argument("--confidence_threshold", help="Confidence threshold for plate detection (0.0 - 1.0)", default=0.5, type=float)
 parser.add_argument("--frame_skip", help="Number of frames to skip between detection attempts", default=5, type=int)
 parser.add_argument("--force", help="Force reprocessing without asking if video was processed before", action="store_true")
+parser.add_argument("--skip", help="Skip processing if video already exists in DB without prompting", action="store_true")
 
 args = parser.parse_args()
 
@@ -160,7 +165,8 @@ for video_url, video_path in video_sources:
         video_path=video_path,
         confidence_threshold=args.confidence_threshold,
         frame_skip=args.frame_skip,
-        force=args.force
+        force=args.force,
+        skip=args.skip
     )
 
 db_session.close()
