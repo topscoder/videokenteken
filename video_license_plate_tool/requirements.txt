@@ -10,4 +10,4 @@ numpy==1.26.4
 # If you prefer youtube_dl, comment out pytube above and use:
 # youtube_dl==2021.12.17
 paddleocr
-paddlepaddle-gpu==2.1.0.post101
+paddlepaddle-gpu
