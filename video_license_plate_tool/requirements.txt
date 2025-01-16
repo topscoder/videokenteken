@@ -1,7 +1,7 @@
 # requirements.txt
 ultralytics==8.0.117    # YOLOv8 for object detection
 opencv-python==4.8.0.76
-# pytube==15.0.0
+pytube
 # pytesseract==0.3.10
 sqlalchemy==2.0.20
 pytubefix
@@ -10,4 +10,4 @@ numpy==1.26.4
 # If you prefer youtube_dl, comment out pytube above and use:
 # youtube_dl==2021.12.17
 paddleocr
-paddlepaddle-gpu
+paddlepaddle-gpu==2.1.0.post101
